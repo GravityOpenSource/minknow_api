@@ -95,28 +95,37 @@ service AcquisitionService {
 // Enums
 //
 
+// Minknow 软件自己的状态
+
 enum MinknowStatus {
     // ERROR_STATUS occurs when there is an error during a transition from one state to another.
     // Minknow will try to revert into the READY state to try to stabalise itself, but there is no guarantee of 
     // that succeeding
+    // ERROR_STATUS 表示Minknow试图从下面的状态之一转换为另外的状态时出现错误，Minknow自身会尽量处置错误达到READY状态，但不保证
+    // 最终能够达到READY状态
     ERROR_STATUS = 0;
 
     // READY occurs when minknow is ready for a new experiment to start.
+    // READY表示Minknow可以开始处理一个新的实验了
     READY = 1;
 
     // STARTING occurs when minknow has received a call for an experiment to start and is setting up the environment
     // for data acquisition to begin
+    // STARTING表示Minknow收到一个实验开始的调用，Minknow准备数据接收环境
     STARTING = 2;
 
     // PROCESSING occurs when minknow is reading data from the device.
+    // PROCESSING 表示Minknow正在接收测序仪设备上的数据
     PROCESSING = 3;
 
     // FINISHING occurs when data acquisition has stopped (either from a explicit rpc request or the experiment naturally ended)
     // and data is still being processed (albacore is still in catchup and processing reads).
+    // FINISHING 表示Minknow已经停止了数据获取，有可能是显示地接收到RPC停止指令，或者是测序实验已经自然完成
     FINISHING = 4;
 }
 
 // An on/off setting where MinKNOW can be allowed to choose a default.
+// ? 默认选项的处置？
 enum Option {
     // Allow MinKNOW to choose the default it believes is appropriate.
     AUTO = 0;
@@ -126,6 +135,7 @@ enum Option {
     FORCE = 2;
 }
 
+// 实验目的：包括真实的测序，或者是测序设备校正，如果是校正目的，则不会启动分析pipeline，不会输出文件
 enum Purpose {
     // No specific purpose listed.
     //
@@ -146,6 +156,8 @@ enum Purpose {
 // Protobuf messages for input/output of RPC calls
 //
 
+// RPC调用时的输入输出
+
 message StartRequest {
     // Prevent waiting until the device is ready before starting acquisition.
     //
@@ -157,6 +169,9 @@ message StartRequest {
     // not already prepared to acquire data.
     //
     // Since 1.14
+    // 不等待设备READY状态, 默认是False, 即需要等待设备READY, 默认情况下Minknow会阻塞start()调用，以便等待设备
+    // 和芯片的状态达到可以输出数据的状态，通常会在设备上插入芯片几秒钟后达到READY状态，如果设为True, 则如果设备或
+    // 芯片没有达到READY状态, 将会返回一个错误消息
     bool dont_wait_for_device_ready = 2;
 
     // Generate duty time and throughput reports.
@@ -167,6 +182,8 @@ message StartRequest {
     // The default setting (AUTO) will only generate reports if purpose is set to SEQUENCING.
     //
     // Since 3.0
+    // 如果数据获取请求发送后并没有protocol在运行，则该设置被忽略，并不生成报告，默认(枚举Option: AUTO)是如果目的
+    // 是测序，则产生报告
     Option generate_report = 3;
 
     // Whether sequencing read metrics should be reported to Oxford Nanopore.
@@ -178,6 +195,9 @@ message StartRequest {
     // The default setting (AUTO) will only send metrics if purpose is set to SEQUENCING.
     //
     // Since 3.0
+    // 是否测序read的指标会被发送到ONT, 这些性能指标是为了提高测序技术，不会发送实际测序数据
+    // 只包括read长度统计，测序时间，类似的普通性能信息 （具体都包括什么？有没有数据采集列表？)
+
     Option send_sequencing_read_metrics = 4;
 
     // Whether basecalling metrics should be reported to Oxford Nanopore.
@@ -191,6 +211,10 @@ message StartRequest {
     // metrics to send.
     //
     // Since 3.2
+    // 是否将Basecall的指标也发送给ONT，不包括实际测序数据，只包括Basecall性能统计信息 （都采集了哪些?)
+    // 默认是设置为AUTO, 如果目的是测序的话，将会发送信息
+    // 如果不是即时Basecalling的话(之后单独用Guppy等basecaller), 则该设置会被忽略
+
     Option send_basecalling_metrics = 5;
 
     // Specify the purpose of this acquisition period.
@@ -199,6 +223,7 @@ message StartRequest {
     // also affect how the user interface presents the state of the protocol.
     //
     // Since 3.2
+    // 设备使用的目的，这个会影响很多默认设置，有三个目的：1. 测序， 2. 校正， 3. 其他
     Purpose purpose = 6;
 
     // Perform analysis for this acquisition period.
@@ -214,6 +239,11 @@ message StartRequest {
     // service, unless the purpose is set to CALIBRATION.
     //
     // Since 3.2
+    // 是否在数据获取期间进行分析，如果关闭该选项的话，将不会有reads, 事件, 通道状态, basecall信息产生
+    // 任何依赖于此的RPC调用将会失败, 无论其他设置如何，都不会有任何基于reads的文件产生
+    // 这个目的是啥？
+    // 默认设置是AUTO, 如果目的是校正的话，则不会进行分析，如果是测序的话，将使用分析配置中的持久化配置服务
+
     Option analysis = 7;
 
     // Allow file output for this acquisition period.
