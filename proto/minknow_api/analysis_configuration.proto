@@ -8,6 +8,7 @@ option objc_class_prefix = "MKAPI";
 import "google/protobuf/wrappers.proto";
 import "minknow_api/rpc_options.proto";
 
+// 分析配置服务
 service AnalysisConfigurationService {
     // Get the analysis configuration
     rpc get_analysis_configuration (GetAnalysisConfigurationRequest) returns (AnalysisConfiguration) {};

@@ -15,36 +15,45 @@ import "minknow_api/analysis_configuration.proto";
 // minknow_api.manager.ManagerService.basecaller_api() method.
 //
 // Since 3.5
+// 注意basecall和Minknow设备实例是不同的, 是解耦的, Minknow中的entrypoint manager 只可以获得basecall api的grpc服务端口
+// 三个服务： basecall barcoding/demultiplexing alignment
+
 service Basecaller {
     // List the available basecalling configurations sorted by flow cell and kit.
     //
     // Since 3.5
+    // 列出所有basecall的配置, 按照芯片和试剂排序
     rpc list_configs_by_kit (ListConfigsByKitRequest) returns (ListConfigsByKitResponse) {}
 
     // Start basecalling reads files.
     //
     // Since 4.0
+    // 启动basecall
     rpc start_basecalling (StartBasecallingRequest) returns (StartBasecallingResponse) {}
 
     // Start barcoding fastq files.
     //
     // Since 3.8
+    // 启动barcoding, 应该是demultiplexing 拆分样本
     rpc start_barcoding (StartBarcodingRequest) returns (StartBarcodingResponse) {}
 
 
     // Start aligning fastq files.
     //
     // Since 3.8
+    // 启动比对 FASTQ文件
     rpc start_alignment (StartAlignmentRequest) returns (StartAlignmentResponse) {}
 
     // Stop a basecalling that was started by start_basecalling_reads().
     //
     // Since 3.5
+    // 取消basecall
     rpc cancel (CancelRequest) returns (CancelResponse) {}
 
     // Gets information about one or more basecalling operations.
     //
     // Since 3.5
+    // 获得一个或者多个basecall的操作信息
     rpc get_info (GetInfoRequest) returns (stream GetInfoResponse) {}
 
     // Monitors basecalls, returning messages when basecalls are started, stopped or receive
@@ -57,6 +66,7 @@ service Basecaller {
     // Note that progress updates may be rate limited to avoid affecting performance.
     //
     // Since 3.5
+    // 监控basecall 返回的消息包含 何时basecall被启动 停止 获得更新
     rpc watch (WatchRequest) returns (stream WatchResponse) {}
 }
 
@@ -84,11 +94,13 @@ message StartBasecallingRequest {
     //
     // Currently, only one directory can be specified, but this definition allows for multiple in
     // the future without breaking compatibility.
+    // 当前只接受一个reads输入目录 今后可能支持多个
     repeated string input_reads_directories = 1;
 
     // Output directory where called reads will be placed.
     //
     // Reads will be sorted into subdirectories based on the sequencing run they came from.
+    // basecall输出目录 不同run的数据位于不同子目录
     string output_reads_directory = 2;
 
     // The name of the basecalling configuration to use.
@@ -98,9 +110,11 @@ message StartBasecallingRequest {
     // basecall and basecall result sequence.
     //
     // This causes .fast5 files to be output in addition to FASTQ files.
+    // 是否使用FAST5格式并且附属原始数据作为输出格式
     bool fast5_out = 4;
 
     // Enable gzip compression of output FASTQ files.
+    // 是否使用gzip压缩输出的FASTQ文件
     bool compress_fastq = 5;
 
     // Prevent events / trace tables being written to .fast5 files.
@@ -109,18 +123,22 @@ message StartBasecallingRequest {
     // efficient (and produces smaller files) to disable them.
     //
     // This has no effect if ``fast5_out`` is not enabled.
+    // 如果使用FAST5作为输出 是否包含事件/追踪信息
     bool disable_events = 6;
 
     // Recursively find fast5 files to basecall in the `input_reads_directories`.
     //
     // If False, only the fast5 files directly in one of the `input_reads_directories` will be
     // basecalled. If True, subdirectories of those directories will also be searched recursively.
+    // 是否在输入目录中递归搜索FAST5文件进行basecall
     bool recursive = 7;
 
     // Options to control barcoding performed once basecalling reads is complete.
+    // basecall结束后控制barcoding拆分的选项
     analysis_configuration.BarcodingConfiguration barcoding_configuration = 10;
 
     // Options to control alignment performed once basecalling reads is complete.
+    // basecall结束后控制比对的选项
     analysis_configuration.AlignmentConfiguration alignment_configuration = 11;
 }
 
@@ -236,6 +254,7 @@ message RunInfo {
     repeated string errors = 4;
 
     // The number of files selected for input.
+    // 多少个输入文件被识别发现
     int32 files_discovered = 5;
 
     // The current basecalling progress (with respect to progress_total).
@@ -246,6 +265,7 @@ message RunInfo {
     // Note that this only really has useful meaning while state is STATE_RUNNING. On STATE_SUCCESS,
     // it will always be the same as progress_total. On STATE_ERROR or STATE_CANCELLED, it may give
     // some indication of how far through basecalling was when it failed or was cancelled.
+    // basecall预计进度 按照比例估计
     int32 progress_current = 6;
 
     // The maximum value of progress_current.
@@ -253,6 +273,7 @@ message RunInfo {
     // (progress_current / progress_total) * 100 will give a percentage completion.
     //
     // If this is 0, it should be interpreted as "unknown progress".
+    // 当前处理预估reads最大值 current/total 就是完成进度
     int32 progress_total = 7;
 
     // When basecalling was started (UTC).
@@ -281,6 +302,7 @@ enum SelectionPreset {
     PRESET_ALL = 2;
 }
 
+// 获取basecall RUN信息请求 分为 当前所有RUN 最近启动的RUN 和所有RUN
 message GetInfoRequest {
     message IdList {
         repeated string ids = 1;

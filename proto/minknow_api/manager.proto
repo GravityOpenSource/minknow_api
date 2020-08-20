@@ -11,6 +11,7 @@ service ManagerService {
     // Get information about the machine running MinKNOW.
     //
     // Since 3.6
+    // 描述宿主机器信息
     rpc describe_host (DescribeHostRequest) returns (DescribeHostResponse) {}
 
     // List all known positions where flow cells can be inserted.
@@ -20,6 +21,7 @@ service ManagerService {
     // only be a single response.
     //
     // Since 3.6
+    // 列出所有的可以使用的芯片位置
     rpc flow_cell_positions (FlowCellPositionsRequest) returns (stream FlowCellPositionsResponse) {}
 
     // Watch for changes in flow cell position availability and state.
@@ -28,6 +30,7 @@ service ManagerService {
     // MinIONs being plugged or unplugged), or their status otherwise changes.
     //
     // Since 3.6
+    // 监控一个芯片位置的状态，类似于flow_cell_position, 但是区别在于是流式监控，芯片位置可以由于插拔而变化
     rpc watch_flow_cell_positions (WatchFlowCellPositionsRequest) returns (stream WatchFlowCellPositionsResponse) {}
 
     // Reset a flow cell position.
@@ -36,6 +39,7 @@ service ManagerService {
     // stop the software (causing the position to be forgotten if the hardware was removed).
     //
     // If the hardware is not in an error state
+    // 如果硬件处于错误状态或者在Minknow运行期间被拔掉了, 这将导致软件停止运行, 导致芯片位置被忘记, 该方法可以重置芯片位置
     rpc reset_position (ResetPositionRequest) returns (ResetPositionResponse) {}
 
     // Get the connection information for the basecaller API.
@@ -44,6 +48,7 @@ service ManagerService {
     // reads files.
     //
     // Since 3.5
+    // 获取basecaller API的连接信息
     rpc basecaller_api (BasecallerApiRequest) returns (BasecallerApiResponse) {}
 
     // Current version information includes:
@@ -55,6 +60,7 @@ service ManagerService {
     //
     // See also: instance.get_version_info which provides some similar information on a per instance basis.
     // Since 3.3
+    // Minkow版本信息, 包括Minknow版本 Protocol版本 配置版本 分发版本 Guppy版本  和instance的get_version_info类似
     rpc get_version_info (GetVersionInfoRequest) returns (GetVersionInfoResponse) {}
 
     // Returns all the files that are within the protocol output dir specified in the user_conf - or a descendant of that directory
@@ -66,6 +72,7 @@ service ManagerService {
     // or a valid `path` argument is specified but does not exist.
     //
     // Since 3.5
+    // 列出所有在user_conf中指定的protocol输出目录下的所有文件, 如果提供了path, 则包括所有子目录下文件, 如果提供的path不存在则返回INVALID_ARG或者NOT_FOUND
     rpc list_protocol_output_dir_files (ListProtocolOutputDirFilesRequest) returns (stream ListProtocolOutputDirFilesResponse) {}
 
     // Create a directory within the protocol output directory tree.
@@ -85,6 +92,7 @@ service ManagerService {
     // The possible valid parent paths can be determined using list_protocol_output_dir_files().
     //
     // Since 3.6
+    // 在protocol输出目录下创建目录
     rpc create_directory (CreateDirectoryRequest) returns (CreateDirectoryResponse) {}
 
     // Returns information about the amount of disk space available, how much
@@ -92,6 +100,7 @@ service ManagerService {
     // that the free disk-space is approaching or past this limit
     //
     // Since 3.7
+    // 获取硬盘空间信息, Minknow需要知道有多少富裕磁盘空间可以使用, 通过阈值来设定何时停止实验
     rpc get_disk_space_info (GetDiskSpaceInfoRequest) returns (GetDiskSpaceInfoResponse) {}
 
     // Stream information about the amount of disk space available, how quickly
@@ -100,6 +109,7 @@ service ManagerService {
     // this limit
     //
     // Since 4.0
+    // 流式获取硬盘空间信息
     rpc stream_disk_space_info(StreamDiskSpaceInfoRequest) returns (stream GetDiskSpaceInfoResponse) {}
 }
 
@@ -146,6 +156,7 @@ message DescribeHostResponse {
     // This uniquely identifies the device.
     //
     // See also `network_name`.
+    // 设备唯一识别号
     string serial = 3;
 
     // The network name of the host.
@@ -154,6 +165,7 @@ message DescribeHostResponse {
     // address was used to connect to the RPC system.
     //
     // For customer computers, this is the only available identfying information for the system.
+    // 网络名字
     string network_name = 4;
 }
 
@@ -182,6 +194,7 @@ message FlowCellPosition {
     enum State {
         // The flow cell position is being initialised. This state should only last for a few
         // seconds, before moving to `STATE_RUNNING` or one of the error states.
+        // 初始化状态
         STATE_INITIALISING = 0;
         // The flow cell position is in a basic state of operation, and an RPC interface is
         // available for it.
@@ -193,12 +206,16 @@ message FlowCellPosition {
         // `STATE_RUNNING` may be set even when there is a problem. The interface provided over
         // `rpc_ports` should be the canonical source of the state of the flow cell position when in
         // `STATE_RUNNING`. In the future, more errors may be tracked properly here.
+        // 在RUNNING状态, RPC_PORTS肯定被设置了, 注意如果硬件出错但是Minknow还在运行的话, 这个端口信息也被提供
+        // 注意Manager可鞥无法检测到许多硬件和软件的错误, 所以STATE_RUNNING状态不能确保没有错误
+        // 来自RPC_PORTS的接口是芯片位置状态的主要来源, 将来这个接口可能会提供更多的错误捕获信息
         STATE_RUNNING = 1;
         // After calling reset_position(), this state may be entered to indicate the software is in
         // the process of being stopped.
         //
         // Typically, this state will either transition into STATE_INITIALISING or the position will
         // be removed entirely (although it could return to one of the hardware error states).
+        // 重置状态
         STATE_RESETTING = 2;
         // The hardware corresponding to the flow cell position was removed.
         //
@@ -206,6 +223,7 @@ message FlowCellPosition {
         // hardware was removed, but the software is still running. The software will not be stopped
         // automatically to prevent possible data loss. Call reset_position() to stop the software
         // and forget about the position.
+        // 硬件被去除, Minknow还在运行, 只针对于可插拔硬件例如Minion, 软件不会自动停止从而确保数据不会丢失
         STATE_HARDWARE_REMOVED = 3;
         // Communication with the hardware failed.
         //
@@ -213,11 +231,13 @@ message FlowCellPosition {
         // PromethION has not had one of its sequencing unit cables attached).
         //
         // More information may be available in `error_info`.
+        // 硬件通讯错误
         STATE_HARDWARE_ERROR = 4;
         // The software corresponding to the flow cell position could not be started (or stopped
         // unexpectedly).
         //
         // More information may be available in `error_info`.
+        // 软件错误
         STATE_SOFTWARE_ERROR = 5;
     };
     // The state of the flow cell position.
@@ -254,6 +274,7 @@ message FlowCellPosition {
     // Some positions may share hardware. Positions that share hardware will have the same
     // group-id. If positions do share hardware, to reset the hardware you will need to
     // reset all positions in the group at the same time.
+    // 一些位置可能共享硬件, 共享硬件的位置具有相同的组ID, 当重置硬件的时候你需要同时重置同一个组ID下所有的位置
     message SharedHardwareGroup {
         uint32 group_id= 1;
     }
@@ -269,12 +290,14 @@ message FlowCellPositionsResponse {
     //
     // This is the same in every message returned from a single call, and allows the caller to
     // easily see how many further positions might be in subsequent messages.
+    // 总共有多少个空闲位置
     int32 total_count = 1;
 
     // Known flow cell positions.
     //
     // Note that not all positions listed here are necessarily available. In particular, integrated
     // flow cell positions (eg: on GridIONs or PromethIONs) will always be listed.
+    // 已知的芯片位置, 注意该列表中不是所有的位置都空闲。 例如Gridion Promethion这种整合芯片位置都将被列出
     repeated FlowCellPosition positions = 2;
 }
 
@@ -286,6 +309,8 @@ message WatchFlowCellPositionsRequest {
 // either never appear again, or appear in `additions` again (restarting the cycle).
 //
 // No position will ever appear in more than one field in the same response message.
+// 每个芯片位置刚开始都是addition, 然后可能是change, 然后可能出现一次removals, 然后就消失了, 除非再次重启循环进入addition
+
 message WatchFlowCellPositionsResponse {
     // Flow cell positions that are new (to this call).
     //
